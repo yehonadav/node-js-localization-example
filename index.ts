@@ -1,9 +1,5 @@
-import {createIntl, createIntlCache, defineMessages, IntlShape, MessageDescriptor} from '@formatjs/intl'
+import {createIntl, createIntlCache, IntlShape} from '@formatjs/intl'
 import hebMessages from './heb.json';
-import {MessageFormatElement} from "@formatjs/icu-messageformat-parser";
-import {IntlConfig} from "@formatjs/intl/src/types";
-import {FormatXMLElementFn, PrimitiveType} from "intl-messageformat";
-import {Options as IntlMessageFormatOptions} from "intl-messageformat/src/core";
 
 // This is optional but highly recommended
 // since it prevents memory leak
@@ -53,12 +49,18 @@ class IntlService {
   }
 }
 
-class IntlSupportService {
-  private supportedIntls: Record<string, IntlShape>;
+class IntlSupportedService {
+  private supportedIntls: Record<string, IntlService>;
   private defaultIntl: IntlShape;
 
   constructor({ supportedIntls, defaultIntl }: { supportedIntls: Record<string, IntlShape>, defaultIntl: IntlShape }) {
-    this.supportedIntls = supportedIntls;
+    this.supportedIntls = Object.keys(supportedIntls).reduce((supportedIntlServices: Record<string, IntlService>, key) => {
+      supportedIntlServices[key] = new IntlService({
+        defaultIntl,
+        intl: supportedIntls[key]
+      });
+      return supportedIntlServices;
+    }, {});
     this.defaultIntl = defaultIntl;
   }
 
@@ -66,14 +68,11 @@ class IntlSupportService {
     if (this.supportedIntls[lang] === undefined)
       throw new Error(`IntlServiceError: language ${lang} is not supported`);
 
-    return new IntlService({
-      intl: this.supportedIntls[lang],
-      defaultIntl: this.defaultIntl
-    });
+    return this.supportedIntls[lang];
   }
 }
 
-const intlSupport = new IntlSupportService({
+const intlSupported = new IntlSupportedService({
   supportedIntls: {
     heb,
     en
@@ -81,7 +80,7 @@ const intlSupport = new IntlSupportService({
   defaultIntl: en
 })
 
-const intl = intlSupport.getIntl('heb')
+const intl = intlSupported.getIntl('heb')
 
 console.log(
   intl.formatMessage(
